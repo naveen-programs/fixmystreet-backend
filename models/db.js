@@ -1,25 +1,22 @@
-const sqlite3 = require("sqlite3");
-const { open } = require("sqlite");
+const Database = require("better-sqlite3");
+const path = require("path");
 
-async function initDB() {
-  const db = await open({
-    filename: "./potholes.db",
-    driver: sqlite3.Database,
-  });
+const dbPath = path.resolve(__dirname, "../potholes.db");
+const db = new Database(dbPath);
 
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS potholes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      address TEXT,
-      description TEXT,
-      latitude REAL,
-      longitude REAL,
-      status TEXT DEFAULT 'Pending',
-      photoPath TEXT
-    )
-  `);
+// Create the potholes table if it doesn’t exist
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS potholes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    address TEXT,
+    description TEXT,
+    latitude REAL,
+    longitude REAL,
+    status TEXT DEFAULT 'Pending',
+    photoPath TEXT
+  )
+`).run();
 
-  return db;
-}
+console.log("✅ Connected to SQLite database");
 
-module.exports = initDB();
+module.exports = db;
