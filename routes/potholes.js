@@ -14,9 +14,11 @@ if (!fs.existsSync(uploadDir)) {
 
 // Multer setup for file uploads
 const storage = multer.diskStorage({
-  destination: uploadDir,
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + "-" + file.originalname);
+    cb(null, Date.now() + "-" + file.originalname.replace(/\s+/g, "_"));
   },
 });
 const upload = multer({ storage });
@@ -40,7 +42,12 @@ router.get("/", (req, res) => {
 router.post("/", upload.single("photo"), (req, res) => {
   try {
     const { address, description, lat, lng } = req.body;
-    const photoPath = req.file ? path.relative(process.cwd(), req.file.path) : null;
+
+    // Always store relative path from /uploads (so frontend can fetch easily)
+    let photoPath = null;
+    if (req.file) {
+      photoPath = `/uploads/${path.basename(req.file.path)}`;
+    }
 
     const stmt = db.prepare(`
       INSERT INTO potholes (address, description, latitude, longitude, photoPath)
@@ -90,7 +97,8 @@ router.delete("/:id", (req, res) => {
 
     // Delete photo if it exists
     if (pothole.photoPath) {
-      const filePath = path.join(process.cwd(), pothole.photoPath);
+      // pothole.photoPath is stored like "/uploads/filename"
+      const filePath = path.join(uploadDir, path.basename(pothole.photoPath));
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
         console.log("🗑 Deleted file:", filePath);

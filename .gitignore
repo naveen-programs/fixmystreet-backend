@@ -1,0 +1,16 @@
+# Node.js
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Environment variables
+.env
+
+# Local databases & uploads
+*.db
+uploads/
+
+# Logs
+logs
+*.log
