@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: fixmystreet-backend
+    env: node
+    plan: free
+    buildCommand: "npm install"
+    startCommand: "node server.js"
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: DB_PATH
+        value: /data/potholes.db
+      - key: UPLOAD_PATH
+        value: /data/uploads
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 1

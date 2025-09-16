@@ -1,14 +1,20 @@
 const express = require("express");
 const multer = require("multer");
-const db = require("../models/db"); // better-sqlite3 export
+const db = require("../models/db");
 const fs = require("fs");
 const path = require("path");
 
 const router = express.Router();
 
+// Use /data/uploads if on Render, otherwise ./uploads
+const uploadDir = process.env.UPLOAD_PATH || path.join(process.cwd(), "uploads");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
 // Multer setup for file uploads
 const storage = multer.diskStorage({
-  destination: "uploads/",
+  destination: uploadDir,
   filename: (req, file, cb) => {
     cb(null, Date.now() + "-" + file.originalname);
   },
@@ -34,7 +40,7 @@ router.get("/", (req, res) => {
 router.post("/", upload.single("photo"), (req, res) => {
   try {
     const { address, description, lat, lng } = req.body;
-    const photoPath = req.file ? `uploads/${req.file.filename}` : null;
+    const photoPath = req.file ? path.relative(process.cwd(), req.file.path) : null;
 
     const stmt = db.prepare(`
       INSERT INTO potholes (address, description, latitude, longitude, photoPath)
@@ -76,9 +82,7 @@ router.put("/:id", (req, res) => {
  */
 router.delete("/:id", (req, res) => {
   try {
-    const pothole = db
-      .prepare("SELECT * FROM potholes WHERE id = ?")
-      .get(req.params.id);
+    const pothole = db.prepare("SELECT * FROM potholes WHERE id = ?").get(req.params.id);
 
     if (!pothole) {
       return res.status(404).json({ error: "Pothole not found" });
@@ -90,8 +94,6 @@ router.delete("/:id", (req, res) => {
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
         console.log("🗑 Deleted file:", filePath);
-      } else {
-        console.log("⚠️ File not found:", filePath);
       }
     }
 

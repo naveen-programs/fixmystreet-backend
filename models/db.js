@@ -1,7 +1,8 @@
 const Database = require("better-sqlite3");
 const path = require("path");
 
-const dbPath = path.resolve(__dirname, "../potholes.db");
+// Use Render Disk (/data) if available, otherwise local
+const dbPath = process.env.DB_PATH || path.resolve(__dirname, "../potholes.db");
 const db = new Database(dbPath);
 
 // Create the potholes table if it doesn’t exist
@@ -17,6 +18,6 @@ db.prepare(`
   )
 `).run();
 
-console.log("✅ Connected to SQLite database");
+console.log("✅ Connected to SQLite database at", dbPath);
 
 module.exports = db;
