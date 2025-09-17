@@ -16,9 +16,11 @@ app.use(express.json());
 
 // ------------------
 // Uploads folder setup
-// ------------------
-// Use environment variable UPLOAD_PATH if provided, else default to ./uploads
 const uploadDir = process.env.UPLOAD_PATH || path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+app.use("/uploads", express.static(uploadDir));
+// ------------------
+
 
 // Create folder if it doesn't exist
 if (!fs.existsSync(uploadDir)) {
