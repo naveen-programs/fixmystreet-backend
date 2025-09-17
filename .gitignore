@@ -11,3 +11,9 @@ yarn-error.log
 # Logs
 logs
 *.log
+
+# ok to ignore database
+*.db
+
+# DO NOT ignore uploads
+# uploads/
