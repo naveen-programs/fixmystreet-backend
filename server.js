@@ -21,8 +21,29 @@ app.use("/uploads", express.static(uploadDir));
 // Routes
 app.use("/api/potholes", potholeRoutes);
 
+// Health check
 app.get("/", (req, res) => {
   res.send("🚀 FixMyStreet Backend is running!");
 });
 
-app.listen(PORT, () => console.log(`✅ Backend running on http://localhost:${PORT}`));
+// Error handling middleware (catches thrown errors)
+app.use((err, req, res, next) => {
+  console.error("❌ Server Error:", err.message);
+
+  // Default status code
+  const status = err.status || 500;
+
+  res.status(status).json({
+    success: false,
+    error: err.message || "Internal Server Error",
+  });
+});
+
+// 404 handler (if no route matches)
+app.use((req, res) => {
+  res.status(404).json({ success: false, error: "Route not found" });
+});
+
+app.listen(PORT, () =>
+  console.log(`✅ Backend running on http://localhost:${PORT}`)
+);
