@@ -7,9 +7,6 @@ yarn-error.log
 # Environment variables
 .env
 
-# Local databases & uploads
-*.db
-uploads/
 
 # Logs
 logs
