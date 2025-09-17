@@ -12,14 +12,14 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
+// Serve uploaded files statically
+router.use("/uploads", express.static(uploadDir));
+
 // Multer setup
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + "-" + file.originalname.replace(/\s+/g, "_"));
-  },
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) =>
+    cb(null, Date.now() + "-" + file.originalname.replace(/\s+/g, "_")),
 });
 const upload = multer({ storage });
 
@@ -43,17 +43,15 @@ router.post("/", upload.single("photo"), (req, res) => {
   try {
     const { address, description, lat, lng } = req.body;
 
-    let photoPath = null;
-    if (req.file) {
-      photoPath = `/uploads/${path.basename(req.file.path)}`;
-    }
+    // Store only filename
+    const photoFilename = req.file ? req.file.filename : null;
 
     const stmt = db.prepare(`
       INSERT INTO potholes (address, description, latitude, longitude, photoPath, status)
       VALUES (?, ?, ?, ?, ?, ?)
     `);
 
-    stmt.run(address, description, lat, lng, photoPath, "pending");
+    stmt.run(address, description, lat, lng, photoFilename, "pending");
 
     res.json({ message: "✅ Pothole reported successfully" });
   } catch (err) {
@@ -90,13 +88,11 @@ router.delete("/:id", (req, res) => {
   try {
     const pothole = db.prepare("SELECT * FROM potholes WHERE id = ?").get(req.params.id);
 
-    if (!pothole) {
-      return res.status(404).json({ error: "Pothole not found" });
-    }
+    if (!pothole) return res.status(404).json({ error: "Pothole not found" });
 
-    // Delete photo if exists
+    // Delete photo file if exists
     if (pothole.photoPath) {
-      const filePath = path.join(uploadDir, path.basename(pothole.photoPath));
+      const filePath = path.join(uploadDir, pothole.photoPath);
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
         console.log("🗑 Deleted file:", filePath);
