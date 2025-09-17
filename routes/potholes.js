@@ -6,13 +6,13 @@ const path = require("path");
 
 const router = express.Router();
 
-// Use /data/uploads if on Render, otherwise ./uploads
+// Upload directory (Render → /data/uploads, local → ./uploads)
 const uploadDir = process.env.UPLOAD_PATH || path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Multer setup for file uploads
+// Multer setup
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadDir);
@@ -43,20 +43,19 @@ router.post("/", upload.single("photo"), (req, res) => {
   try {
     const { address, description, lat, lng } = req.body;
 
-    // Always store relative path from /uploads (so frontend can fetch easily)
     let photoPath = null;
     if (req.file) {
       photoPath = `/uploads/${path.basename(req.file.path)}`;
     }
 
     const stmt = db.prepare(`
-      INSERT INTO potholes (address, description, latitude, longitude, photoPath)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO potholes (address, description, latitude, longitude, photoPath, status)
+      VALUES (?, ?, ?, ?, ?, ?)
     `);
 
-    stmt.run(address, description, lat, lng, photoPath);
+    stmt.run(address, description, lat, lng, photoPath, "pending");
 
-    res.json({ message: "Pothole reported successfully" });
+    res.json({ message: "✅ Pothole reported successfully" });
   } catch (err) {
     console.error("❌ Insert error:", err.message);
     res.status(500).json({ error: "Failed to report pothole" });
@@ -77,7 +76,7 @@ router.put("/:id", (req, res) => {
       return res.status(404).json({ error: "Pothole not found" });
     }
 
-    res.json({ message: "Status updated" });
+    res.json({ message: "✅ Status updated" });
   } catch (err) {
     console.error("❌ Update error:", err.message);
     res.status(500).json({ error: "Failed to update status" });
@@ -95,9 +94,8 @@ router.delete("/:id", (req, res) => {
       return res.status(404).json({ error: "Pothole not found" });
     }
 
-    // Delete photo if it exists
+    // Delete photo if exists
     if (pothole.photoPath) {
-      // pothole.photoPath is stored like "/uploads/filename"
       const filePath = path.join(uploadDir, path.basename(pothole.photoPath));
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
@@ -107,7 +105,7 @@ router.delete("/:id", (req, res) => {
 
     db.prepare("DELETE FROM potholes WHERE id = ?").run(req.params.id);
 
-    res.json({ message: "Pothole deleted successfully" });
+    res.json({ message: "✅ Pothole deleted successfully" });
   } catch (err) {
     console.error("❌ Delete error:", err.message);
     res.status(500).json({ error: "Failed to delete pothole" });
