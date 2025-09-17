@@ -1,25 +1,15 @@
-// server.js
 const express = require("express");
-const cors = require("cors");
-const path = require("path");
+const multer = require("multer");
+const db = require("../models/db");
 const fs = require("fs");
-const potholeRoutes = require("./routes/potholes");
+const path = require("path");
 
-const app = express();
-const PORT = process.env.PORT || 8080;
-
-// ------------------
-// Middleware
-// ------------------
-app.use(cors());
-app.use(express.json());
+const router = express.Router();
 
 // ------------------
-// Uploads folder setup
+// Upload directory
 // ------------------
-const uploadDir = process.env.UPLOAD_PATH || path.join(__dirname, "uploads");
-
-// Create folder if it doesn't exist
+const uploadDir = process.env.UPLOAD_PATH || path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
   console.log("✅ Created upload folder at:", uploadDir);
@@ -27,43 +17,102 @@ if (!fs.existsSync(uploadDir)) {
   console.log("✅ Upload folder exists at:", uploadDir);
 }
 
-// Serve uploaded files statically at /uploads
-//paste
+// Serve uploaded files statically
+router.use("/uploads", express.static(uploadDir));
 
 // ------------------
-// Routes
+// Multer setup
 // ------------------
-app.use("/api/potholes", potholeRoutes);
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) =>
+    cb(null, Date.now() + "-" + file.originalname.replace(/\s+/g, "_")),
+});
+const upload = multer({ storage });
 
 // ------------------
-// Health check route
+// GET all potholes
 // ------------------
-app.get("/", (req, res) => {
-  res.send("🚀 FixMyStreet Backend is running!");
+router.get("/", (req, res) => {
+  try {
+    const potholes = db.prepare("SELECT * FROM potholes").all();
+    res.json(potholes);
+  } catch (err) {
+    console.error("❌ Fetch error:", err.message);
+    res.status(500).json({ error: "Failed to fetch potholes" });
+  }
 });
 
 // ------------------
-// Error handling
+// POST new pothole
 // ------------------
-app.use((err, req, res, next) => {
-  console.error("❌ Server Error:", err.message);
-  const status = err.status || 500;
-  res.status(status).json({
-    success: false,
-    error: err.message || "Internal Server Error",
-  });
+router.post("/", upload.single("photo"), (req, res) => {
+  try {
+    const { address, description, lat, lng } = req.body;
+
+    // Get filename of uploaded photo, if any
+    const photoFilename = req.file ? req.file.filename : null;
+
+    const stmt = db.prepare(`
+      INSERT INTO potholes (address, description, latitude, longitude, photoPath, status)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+
+    stmt.run(address, description, lat, lng, photoFilename, "pending");
+
+    res.json({ message: "✅ Pothole reported successfully" });
+  } catch (err) {
+    console.error("❌ Insert error:", err.message);
+    res.status(500).json({ error: "Failed to report pothole" });
+  }
 });
 
 // ------------------
-// 404 handler
+// PUT update pothole status
 // ------------------
-app.use((req, res) => {
-  res.status(404).json({ success: false, error: "Route not found" });
+router.put("/:id", (req, res) => {
+  try {
+    const { status } = req.body;
+
+    const stmt = db.prepare("UPDATE potholes SET status = ? WHERE id = ?");
+    const result = stmt.run(status, req.params.id);
+
+    if (result.changes === 0) {
+      return res.status(404).json({ error: "Pothole not found" });
+    }
+
+    res.json({ message: "✅ Status updated" });
+  } catch (err) {
+    console.error("❌ Update error:", err.message);
+    res.status(500).json({ error: "Failed to update status" });
+  }
 });
 
 // ------------------
-// Start server
+// DELETE pothole
 // ------------------
-app.listen(PORT, () => {
-  console.log(`✅ Backend running on http://localhost:${PORT}`);
+router.delete("/:id", (req, res) => {
+  try {
+    const pothole = db.prepare("SELECT * FROM potholes WHERE id = ?").get(req.params.id);
+
+    if (!pothole) return res.status(404).json({ error: "Pothole not found" });
+
+    // Delete photo file if exists
+    if (pothole.photoPath) {
+      const filePath = path.join(uploadDir, pothole.photoPath);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        console.log("🗑 Deleted file:", filePath);
+      }
+    }
+
+    db.prepare("DELETE FROM potholes WHERE id = ?").run(req.params.id);
+
+    res.json({ message: "✅ Pothole deleted successfully" });
+  } catch (err) {
+    console.error("❌ Delete error:", err.message);
+    res.status(500).json({ error: "Failed to delete pothole" });
+  }
 });
+
+module.exports = router;
