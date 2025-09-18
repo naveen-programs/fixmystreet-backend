@@ -38,6 +38,28 @@ router.get("/", (req, res) => {
   }
 });
 
+// router.get("/", (req, res) => {
+//   try {
+//     const sql = `
+//       SELECT 
+//         ROW_NUMBER() OVER (ORDER BY id) AS serial_no,
+//         id,
+//         address,
+//         description,
+//         latitude,
+//         longitude,
+//         status,
+//         photoPath
+//       FROM potholes
+//     `;
+//     const potholes = db.prepare(sql).all();
+//     res.json(potholes);
+//   } catch (err) {
+//     console.error("❌ Fetch error:", err.message);
+//     res.status(500).json({ error: "Failed to fetch potholes" });
+//   }
+// });
+// // 
 // ------------------
 // POST new pothole
 // ------------------
